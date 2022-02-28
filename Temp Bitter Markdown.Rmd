@@ -1,0 +1,271 @@
+---
+title: "Bitter and Temp survey data"
+author: "Zane Chapman"
+date: "2/11/2022"
+output: html_document
+---
+load in library and packages
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(readxl)
+library(janitor)
+library(readr)
+library(dplyr)
+library(plotrix)
+library(ggpmisc)
+```
+
+Upload raw survey data for both Tanner and RKC
+
+```{r }
+raw_data<-rbind(read_csv("data/05-07 Tanner RKC survey crab info.csv"), read_csv("data/08-10 Tanner RKC survey crab info.csv"),
+                read_csv("data/11-13 Tanner RKC survey crab info.csv"), read_csv("data/14-15 Tanner RKC survey crab info.csv"),
+                read_csv("data/16-18 Tanner RKC survey crab info.csv"),read_csv("data/19-21 Tanner RKC survey crab info.csv")
+)
+
+```
+
+Select only Tanner crab and clean the names.  Summarise to get the total crab, then again to get the parasite information 
+
+```{r }
+raw_data<- raw_data %>% filter(Species=="Bairdi tanner crab")
+raw_data<- clean_names(raw_data)
+
+raw_data %>% 
+  group_by(location, year, parasite) %>% 
+  summarise(total_crab = sum(number_of_specimens))-> by_survey_area
+
+by_survey_area %>% 
+  spread(parasite, total_crab) %>% clean_names() -> parasite_sum
+```
+
+ Get the sum of all the parasite crab and clean crab to get a total amount of tanners
+ 
+ Then clean to select only the relevant information 
+```{r }
+parasite_sum %>% 
+  mutate(total_crab = sum( bitter_crab, none_present, briarosaccus_double_externa,
+                          briarosaccus_double_scar, briarosaccus_single_externa, briarosaccus_single_scar,
+                          carcinonemertes_errans, na, na.rm = T),
+                          per_bitter = (bitter_crab/total_crab)*100, 
+         per_bitter = round(ifelse(is.na(per_bitter), 0, per_bitter), 1)) -> bitter_summary
+#clean up
+bitter_summary<- bitter_summary %>% select(location, year, bitter_crab, total_crab, per_bitter)
+```
+
+
+Now we have a table with location, year, # of bitter crab, total # of crab and the percent of bitter crab for each location by year
+
+We can create another table summary to show the bitter percent by year for each location.
+
+```{r }
+bitter_summary %>% 
+  select(location, year, per_bitter) %>% 
+  spread(year, per_bitter) %>% 
+  arrange(desc(`2020`)) -> table_bitter
+```
+
+Now to input and create a table for the avg temperatures
+```{r }
+tidtemp<- read_csv("data/Tidbit master.csv") %>% clean_names() %>% select(year, location, depth_fathoms, meantemp)
+
+```
+
+clean and summarize to table to get the Standard Error of the average temp at each location and mean depth by year.
+Note that there is a large difference in depths at which the temp is taken at, which is why the SE is included.
+```{r }
+tidtemp %>% group_by(location, year) %>% 
+  summarise(SE= std.error(meantemp, na.rm = T), avgtemp= mean(meantemp, na.rm = T), mean.depth= mean(depth_fathoms, na.rm=T))  -> tidtemp_avg
+
+```
+merge the temp and bitter summary by location and year then remove the na
+
+round the numbers to clean up and create a summary table of the the temperatures
+
+```{r }
+merge(tidtemp_avg, bitter_summary, by=c("location", "year")) %>% na.omit()  -> bitter_temp
+bitter_temp$avgtemp<- round(bitter_temp$avgtemp, 2)
+bitter_temp$SE<- round(bitter_temp$SE, 2)
+bitter_temp$mean.depth<- round(bitter_temp$mean.depth, 2)
+
+ #summary table for temps
+ bitter_temp %>% 
+    select(location, year, avgtemp) %>% 
+    spread(year, avgtemp)  -> table_temp
+```
+
+Now we have object bitter_temp to use for exploratory analysis and plotting visuals
+
+
+two plots for average temperature by year for each location.
+SE is added to the figure to which for the most part is small
+besides a few locations on specific years.
+
+They were split into two figures to make it easier to view
+
+```{r}
+bitter_temp %>% filter(location=="Barlow Cove"|location=="Excursion Inlet"|location=="Glacier Bay"
+                       |location=="Icy Strait"|location=="Juneau"|location=="Lynn Sisters"|
+                         location=="Stephens Passage"|location=="Holkham Bay")%>% 
+  ggplot(aes(year, avgtemp,  color=location))+
+  geom_point()+
+  geom_errorbar(aes(ymin= avgtemp-SE, ymax = avgtemp+SE), width = 0.2)+
+  geom_line(aes(group=location))+
+  xlab("Year")+ylab("Average Temperature")+labs(color="Location")
+
+bitter_temp %>% filter(location=="Deadman Reach"|location=="Gambier Bay"|location=="Port Camden"|
+                         location=="Port Frederick"|location=="Pybus Bay"|location=="Rodman Bay"|
+                         location=="Seymour Canal"|location=="Thomas Bay")%>% 
+  ggplot(aes(year, avgtemp,  color=location))+
+  geom_point()+
+  geom_errorbar(aes(ymin= avgtemp-SE, ymax = avgtemp+SE), width = 0.2)+
+  geom_line(aes(group=location))+
+  xlab("Year")+ylab("Average Temperature")+labs(color="Location")
+```
+
+Same thing for the bitter rate at each location
+
+```{r}
+bitter_temp %>% filter(location=="Barlow Cove"|location=="Excursion Inlet"|location=="Glacier Bay"
+                       |location=="Icy Strait"|location=="Juneau"|location=="Lynn Sisters"|
+                         location=="Stephens Passage"|location=="Holkham Bay")%>% 
+  ggplot(aes(year, per_bitter,  color=location))+
+  geom_point()+
+  geom_line(aes(group=location))+
+  xlab("Year")+ylab("Bitter Percent")+labs(color="Location")
+
+bitter_temp %>% filter(location=="Deadman Reach"|location=="Gambier Bay"|location=="Port Camden"|
+                         location=="Port Frederick"|location=="Pybus Bay"|location=="Rodman Bay"|
+                         location=="Seymour Canal"|location=="Thomas Bay")%>% 
+  ggplot(aes(year, per_bitter,  color=location))+
+  geom_point()+
+  geom_line(aes(group=location))+
+  xlab("Year")+ylab("Bitter Percent")+labs(color="Location")
+```
+Here is where I start to look at the relationship of Bitter % and average temperature 
+The first figure displays the bitter% ~ average temp
+
+```{r}
+ggplot(bitter_temp, aes(avgtemp, per_bitter))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) + geom_point()+
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = T)+ xlab("Average Temperature (C)")+ylab("Bitter Percent") 
+```
+I removed the temps greater than 7.5 since there are few and a very low bitter % associated with them
+
+```{r}
+bitter_temp %>% filter(avgtemp < 7.5) %>%  ggplot( aes(avgtemp, per_bitter))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) + geom_point()+
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = T)+ xlab("Average Temperature (C)")+ylab("Bitter Percent") 
+```
+Here I split the temperature from low (>10) and high (<10)
+
+```{r}
+bitter_temp %>% filter(per_bitter >10) %>%  ggplot( aes(avgtemp, per_bitter))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) + geom_point()+
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = T)+ xlab("Average Temperature (C)")+ylab("Bitter Percent") 
+  
+#plot for lower bitter %
+  bitter_temp %>% filter(per_bitter <10, avgtemp<7.5) %>%  ggplot( aes(avgtemp, per_bitter))+
+    geom_smooth(method = "lm", se=T, color="black", formula = y~x) + geom_point()+
+    stat_poly_eq(formula = y~x, 
+                 aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+                 parse = T) + xlab("Average Temperature (C)")+ylab("Bitter Percent")
+```
+After plotting these as a linear model there doesn't appear a strong relationship 
+between temperature and bitter%.  It appears that location is a bigger factor for bitter % than temperature.
+
+The next set of plots show bitter% as it relates to average temps with years shown as color points.
+
+From these figures with a linear model most of the locations do show a negative relationship between
+Bitter % and temperature, but the slopes and R^2 values differ between locations.
+
+```{r}
+bitter_temp %>% filter(location=="Barlow Cove") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+
+  ggtitle("Barlow Cove")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+
+bitter_temp %>% filter(location=="Deadman Reach") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Deadman Reach")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Excursion Inlet") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Excursion Inlet")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Gambier Bay") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Gambier Bay")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Glacier Bay") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Glacier Bay")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Holkham Bay") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Holkham Bay")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Icy Strait") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Icy Strait")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Juneau") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Juneau")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Lynn Sisters") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Lynn Sisters")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Port Camden") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Port Camden")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Port Frederick") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Port Frederick")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Pybus Bay") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Pybus Bay")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+
+bitter_temp %>% filter(location=="Seymour Canal") %>%  ggplot( aes(avgtemp, per_bitter, color=year))+
+  geom_smooth(method = "lm", se=T, color="black", formula = y~x) +
+  stat_poly_eq(formula = y~x, 
+               aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+               parse = TRUE) + geom_point()+ggtitle("Seymour Canal")+ xlab("Average Temperature (C)")+ylab("Bitter Percent")
+```
+
+
