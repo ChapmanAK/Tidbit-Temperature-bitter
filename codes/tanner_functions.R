@@ -7,6 +7,9 @@
 library(tidyverse)
 library(weights)
 library(broom)
+library(janitor)
+library(plyr)
+library(dplyr)
 
 library(stringr)
 library(reshape2)
