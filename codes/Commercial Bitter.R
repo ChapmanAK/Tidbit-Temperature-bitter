@@ -4,8 +4,8 @@ Comm_catch<- read_csv("data/Tanner Fish tickets 06-22.csv")
 Comm_catch %>% select("Date Fishing Began", "Season", "Stat Area", "Delivery Condition Code and Name", "Sequential Number", "Landed Weight (sum)") %>% 
   clean_names()->Comm_catch
 
-as.POSIXct(Comm_catch$date_fishing_began, format="%m-%d-%Y")
 as.Date(Comm_catch$date_fishing_began, "%m/%d/%Y")->Comm_catch$date_fishing_began
+
 format(Comm_catch$date_fishing_began, format="%Y")->Comm_catch$year
 
 Comm_catch %>% 
@@ -58,7 +58,8 @@ library(data.table)
 setnames(new_com_sum, old = c("total_crab", "total_bitter", "per_bitter"), 
          new = c("com_total_crab", "com_total_bitter", "com_bitter_per"))
 #subtract one from commercial dataframe so the summer/spring survey match up with the fishery
-lapply(new_com_sum, transform, as.numeric(year)=year-1)
+library(lubridate)
+new_com_sum$year<- new_com_sum$year-1
 
 
 merge(bitter_temp, new_com_sum, by=c("location", "year"))->comm_survey_bitter_temp                       
