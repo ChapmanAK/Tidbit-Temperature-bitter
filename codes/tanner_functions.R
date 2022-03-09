@@ -5,12 +5,13 @@
 
 ## load packages -----------
 library(tidyverse)
-library(weights)
-library(broom)
 library(janitor)
 library(plyr)
 library(dplyr)
+library(readxl)
 
+library(weights)
+library(broom)
 library(stringr)
 library(reshape2)
 library(extrafont)

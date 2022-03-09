@@ -12,8 +12,8 @@ source('./code/tanner_functions.R')
 # data -----
 cur_yr <- 2021
 
-raw_data <- read.csv(paste0('./data/tanner/tanner_tcs/Bitter_crab_Tanner_survey_', cur_yr, '.csv')) 
-raw_rkc <- read.csv(paste0('./data/tanner/tanner_rkc/Bitter_crab_RKC_survey_', cur_yr, '.csv')) 
+raw_data <- read.csv(paste0('data/Bitter_crab_Tanner_survey_', cur_yr, '.csv')) 
+raw_rkc <- read.csv(paste0('data/Bitter_crab_RKC_survey_', cur_yr, '.csv')) 
 
 ## summarize -----
 raw_data %>% 

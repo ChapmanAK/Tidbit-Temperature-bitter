@@ -1,12 +1,32 @@
+
+library(janitor)
+
+library(dplyr)
+library(readxl)
+library(tidyr)
+library(readr)
 # get commercial bitter rates from fish tickets
 Comm_catch<- read_csv("data/Tanner Fish tickets 06-22.csv")
 #need to create bitter% for each stat area by year
 Comm_catch %>% select("Date Fishing Began", "Season", "Stat Area", "Delivery Condition Code and Name", "Sequential Number", "Landed Weight (sum)") %>% 
   clean_names()->Comm_catch
+#Extract the year of the fishery, by using the start year it will line up with the survey
+#Ex. Fish caught in winter of 07 correspond with the temps of the 06 survey
 
-as.Date(Comm_catch$date_fishing_began, "%m/%d/%Y")->Comm_catch$date_fishing_began
+Comm_catch$year=substr(Comm_catch$season, 4,7)
 
-format(Comm_catch$date_fishing_began, format="%Y")->Comm_catch$year
+#Comm_catch$delivery_condition_code_and_name<- as.factor(Comm_catch$delivery_condition_code_and_name)
+#Comm_catch$landed_weight_sum<- as.integer(Comm_catch$landed_weight_sum)
+
+#Comm_catch %>% 
+#  spread(delivery_condition_code_and_name, landed_weight_sum) %>% clean_names()->comm_bitter_sum
+
+
+#as.Date(Comm_catch$date_fishing_began, "%m/%d/%Y")->Comm_catch$date_fishing_began
+
+#format(Comm_catch$date_fishing_began, format="%Y")->Comm_catch$year
+
+
 
 Comm_catch %>% 
   group_by(year, stat_area, delivery_condition_code_and_name) %>% 
@@ -57,9 +77,10 @@ na.omit(new_com_sum)->new_com_sum
 library(data.table)
 setnames(new_com_sum, old = c("total_crab", "total_bitter", "per_bitter"), 
          new = c("com_total_crab", "com_total_bitter", "com_bitter_per"))
-#subtract one from commercial dataframe so the summer/spring survey match up with the fishery
-library(lubridate)
-new_com_sum$year<- new_com_sum$year-1
+#merge the commercial bitter with the survey bitter/temps
+#the commercial bitter year is one less than the catch so that it matches with the survey data
+#EX A survey that occurred in the summer/fall of 06 corresponds to the winter fishery in 07
+#therefore by making the fishery year minus 1 it matches the survey.
 
 
 merge(bitter_temp, new_com_sum, by=c("location", "year"))->comm_survey_bitter_temp                       

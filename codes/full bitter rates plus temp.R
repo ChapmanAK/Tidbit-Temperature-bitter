@@ -36,15 +36,16 @@ bitter_summary %>%
   spread(year, per_bitter) %>% 
   arrange(desc(`2020`)) -> table_bitter
 
-#same but for temp
-bitter_summary %>% 
-   select(location, year, avgtemp) %>% 
-   spread(year, avgtemp) %>% 
-   arrange(desc(`2020`)) -> table_temp
+#same but for temp (probably remove)
+#bitter_summary %>% 
+#   select(location, year, avgtemp) %>% 
+#   spread(year, avgtemp) %>% 
+#   arrange(desc(`2020`)) -> table_temp
 
 #now add in temp data
 tidtemp<- read_csv("data/Tidbit master.csv") %>% clean_names() %>% select(year, location, depth_fathoms, meantemp)
 
+library(plotrix)
 #create avg temp for each location with SE by year
 tidtemp %>% group_by(location, year) %>% 
   summarise(SE= std.error(meantemp, na.rm = T), avgtemp= mean(meantemp, na.rm = T), mean.depth= mean(depth_fathoms, na.rm=T))  -> tidtemp_avg
